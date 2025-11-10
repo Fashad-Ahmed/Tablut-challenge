@@ -33,6 +33,17 @@ CAMPS = {
     (3, 8), (4, 8), (5, 8), (4, 7),  # Right
 }
 
+# Citadel positions (Ashton rules) - special squares with movement restrictions
+# From GameAshtonTablut.java: a4, a5, a6, b5, d1, e1, f1, e2, i4, i5, i6, h5, d9, e9, f9, e8
+# Chess notation mapping: a=0, b=1, c=2, d=3, e=4, f=5, g=6, h=7, i=8
+# Row mapping: 1=0, 2=1, 3=2, 4=3, 5=4, 6=5, 7=6, 8=7, 9=8
+CITADELS = {
+    (0, 3), (0, 4), (0, 5), (1, 4),  # a4, a5, a6, b5 (top)
+    (3, 0), (4, 0), (5, 0), (4, 1),  # d1, e1, f1, e2 (left)
+    (8, 3), (8, 4), (8, 5), (7, 4),  # i4, i5, i6, h5 (right)
+    (3, 8), (4, 8), (5, 8), (4, 7),  # d9, e9, f9, e8 (bottom)
+}
+
 # Escape tiles (edges excluding camps)
 ESCAPE_TILES = set()
 for i in range(9):
@@ -196,9 +207,8 @@ class TablutEnv(gym.Env):
         Returns:
             List of (from_pos, to_pos) tuples
         """
-        if self._legal_moves_cache is not None and state == self.state:
-            return self._legal_moves_cache
-        
+        # Always recalculate - don't use cache to avoid stale state issues
+        # The cache can cause problems when state is passed from external source
         moves = []
         player_pawn = Pawn.WHITE if state.turn == Turn.WHITE else Pawn.BLACK
         
@@ -211,7 +221,6 @@ class TablutEnv(gym.Env):
                     piece_moves = self._generate_moves_for_piece(state, (i, j))
                     moves.extend(piece_moves)
         
-        self._legal_moves_cache = moves
         return moves
     
     def _generate_moves_for_piece(self, state: GameState, from_pos: Tuple[int, int]) -> List[Tuple[Tuple[int, int], Tuple[int, int]]]:
@@ -248,6 +257,10 @@ class TablutEnv(gym.Env):
         """Check if position is a camp square."""
         return (row, col) in CAMPS
     
+    def _is_citadel(self, row: int, col: int) -> bool:
+        """Check if position is a citadel square."""
+        return (row, col) in CITADELS
+    
     def _is_valid_destination(self, state: GameState, from_pos: Tuple[int, int], 
                               to_pos: Tuple[int, int]) -> bool:
         """Check if destination square is valid for move."""
@@ -261,6 +274,22 @@ class TablutEnv(gym.Env):
         # Cannot land on castle (unless it's the king already there)
         if to_row == CASTLE_ROW and to_col == CASTLE_COL and state.board[from_row, from_col] != Pawn.KING:
             return False
+        
+        # CITADEL RULES (from GameAshtonTablut.java):
+        # 1. Cannot enter citadel if not already in one
+        if self._is_citadel(to_row, to_col) and not self._is_citadel(from_row, from_col):
+            return False
+        
+        # 2. If moving from citadel to citadel, distance must be <= 5
+        if self._is_citadel(from_row, from_col) and self._is_citadel(to_row, to_col):
+            if from_row == to_row:
+                # Horizontal move
+                distance = abs(from_col - to_col)
+            else:
+                # Vertical move
+                distance = abs(from_row - to_row)
+            if distance > 5:
+                return False
         
         # Black pieces: can only be in camps if they started there
         # Track which black pieces started in camps (set in reset())
@@ -282,13 +311,21 @@ class TablutEnv(gym.Env):
             # Horizontal move
             step = 1 if to_col > from_col else -1
             for col in range(from_col + step, to_col, step):
+                # Check for pieces blocking the path
                 if state.board[from_row, col] != Pawn.EMPTY:
+                    return False
+                # CITADEL RULE: Cannot jump over citadels if not starting from one
+                if self._is_citadel(from_row, col) and not self._is_citadel(from_row, from_col):
                     return False
         elif from_col == to_col:
             # Vertical move
             step = 1 if to_row > from_row else -1
             for row in range(from_row + step, to_row, step):
+                # Check for pieces blocking the path
                 if state.board[row, from_col] != Pawn.EMPTY:
+                    return False
+                # CITADEL RULE: Cannot jump over citadels if not starting from one
+                if self._is_citadel(row, from_col) and not self._is_citadel(from_row, from_col):
                     return False
         else:
             # Not orthogonal (shouldn't happen)
