@@ -109,10 +109,40 @@ def json_to_state(json_str: str) -> GameState:
     
     # Parse turn
     turn_str = data.get("turn", "W")
+    
+    # Normalize turn string (handle both string and enum-like formats)
+    if isinstance(turn_str, str):
+        turn_str = turn_str.upper().strip()
+    else:
+        turn_str = str(turn_str).upper().strip()
+    
+    # Map common variations to Turn enum values
+    turn_mapping = {
+        "W": Turn.WHITE,
+        "WHITE": Turn.WHITE,
+        "B": Turn.BLACK,
+        "BLACK": Turn.BLACK,
+        "WW": Turn.WHITEWIN,
+        "WHITEWIN": Turn.WHITEWIN,
+        "BW": Turn.BLACKWIN,
+        "BLACKWIN": Turn.BLACKWIN,
+        "D": Turn.DRAW,
+        "DRAW": Turn.DRAW,
+    }
+    
     try:
+        # Try direct enum conversion first
         turn = Turn(turn_str)
     except ValueError:
-        turn = Turn.WHITE  # Default fallback
+        # Try mapping
+        if turn_str in turn_mapping:
+            turn = turn_mapping[turn_str]
+        else:
+            # Default fallback - but log warning
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Unknown turn value '{turn_str}', defaulting to WHITE")
+            turn = Turn.WHITE
     
     return GameState(board=board, turn=turn)
 
