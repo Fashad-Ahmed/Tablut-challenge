@@ -165,6 +165,9 @@ class TablutAgent:
             initial_state_json = recv_string(self.socket)
             logger.debug(f"Received initial state: {initial_state_json[:200]}...")
             
+            # Track game start time for timeout management
+            self._game_start_time = time.time()
+            
             state = json_to_state(initial_state_json)
             logger.info(f"Game started. Turn: {state.turn.value}")
             
@@ -181,8 +184,14 @@ class TablutAgent:
             
             # Game loop
             while True:
+                # Check terminal first
+                if state.turn in (Turn.WHITEWIN, Turn.BLACKWIN, Turn.DRAW):
+                    result = state.turn.value
+                    logger.info(f"Game ended: {result}")
+                    break
+                
                 # Check if it's our turn
-                if state.turn != self.turn and state.turn not in (Turn.WHITEWIN, Turn.BLACKWIN, Turn.DRAW):
+                if state.turn != self.turn:
                     # Wait for opponent's move
                     logger.info("Waiting for opponent's move...")
                     try:
@@ -196,21 +205,16 @@ class TablutAgent:
                         logger.warning(f"Connection error while waiting for opponent: {e}")
                         logger.info("Assuming game ended")
                         break
-                
-                # Check terminal
-                if state.turn in (Turn.WHITEWIN, Turn.BLACKWIN, Turn.DRAW):
-                    result = state.turn.value
-                    logger.info(f"Game ended: {result}")
-                    break
+                    # After receiving state, check if it's now our turn
+                    continue  # Loop back to check turn
                 
                 # It's our turn - compute and send move
                 if state.turn == self.turn:
                     logger.info("Computing move...")
                     
-                    # Debug: Check legal moves before minimax
-                    from .tablut_env import TablutEnv
-                    debug_env = TablutEnv()
-                    legal_moves_debug = debug_env.get_legal_moves(state)
+                    # Use the minimax agent's environment (which is already initialized)
+                    # Don't create a new environment - use the existing one
+                    legal_moves_debug = self.minimax.env.get_legal_moves(state)
                     logger.info(f"Found {len(legal_moves_debug)} legal moves")
                     
                     if len(legal_moves_debug) == 0:
@@ -247,6 +251,12 @@ class TablutAgent:
                     
                     start_time = time.time()
                     
+                    # Adjust time limit based on remaining time
+                    # Leave buffer for network communication
+                    remaining_time = self.timeout - (time.time() - self._game_start_time)
+                    safe_time_limit = max(5.0, remaining_time - 3.0)  # 3s buffer for network
+                    self.minimax.time_limit = min(self.minimax.time_limit, safe_time_limit)
+                    
                     try:
                         # Get best move (only if we have legal moves)
                         if len(legal_moves_debug) > 0:
@@ -254,6 +264,49 @@ class TablutAgent:
                             
                             elapsed = time.time() - start_time
                             logger.info(f"Move computed in {elapsed:.2f}s: {from_pos} -> {to_pos}")
+                            
+                            # Warn if move took too long
+                            if elapsed > 50:
+                                logger.warning(f"Move computation took {elapsed:.2f}s (close to timeout!)")
+                            
+                            # CRITICAL: Re-validate move on CURRENT state right before sending
+                            # State might have changed, so we need to check again
+                            current_legal_moves = self.minimax.env.get_legal_moves(state)
+                            
+                            if (from_pos, to_pos) not in current_legal_moves:
+                                logger.warning(
+                                    f"Computed move {from_pos} -> {to_pos} is no longer valid! "
+                                    f"Recomputing on current state..."
+                                )
+                                
+                                # Additional validation: check if destination is empty
+                                if state.board[to_pos[0], to_pos[1]] != Pawn.EMPTY:
+                                    logger.error(
+                                        f"Destination {to_pos} is occupied by {state.board[to_pos[0], to_pos[1]]}! "
+                                        f"State may have changed. Recomputing move..."
+                                    )
+                                
+                                # Recompute move on current state (quick - just use first legal move)
+                                if len(current_legal_moves) > 0:
+                                    from_pos, to_pos = current_legal_moves[0]
+                                    logger.warning(f"Using safe fallback move: {from_pos} -> {to_pos}")
+                                else:
+                                    logger.error("No legal moves available on current state!")
+                                    break
+                            
+                            # Final validation before sending
+                            final_check = self.minimax.env.get_legal_moves(state)
+                            if (from_pos, to_pos) not in final_check:
+                                logger.error(
+                                    f"Move {from_pos} -> {to_pos} is still invalid! "
+                                    f"Destination: {state.board[to_pos[0], to_pos[1]]}"
+                                )
+                                if final_check:
+                                    from_pos, to_pos = final_check[0]
+                                    logger.warning(f"Using emergency fallback: {from_pos} -> {to_pos}")
+                                else:
+                                    logger.error("No legal moves available!")
+                                    break
                         else:
                             # No legal moves - this shouldn't happen but handle gracefully
                             logger.error("No legal moves available - game may have ended")
@@ -275,16 +328,72 @@ class TablutAgent:
                         
                         # Read updated state (confirmation of our move)
                         logger.info("Waiting for state update after our move...")
-                        try:
-                            state_json = recv_string(self.socket)
-                            if state_json is None:
-                                logger.info("Socket closed by server (game ended)")
+                        max_retries = 3
+                        retry_count = 0
+                        state_updated = False
+                        
+                        while retry_count < max_retries and not state_updated:
+                            try:
+                                state_json = recv_string(self.socket)
+                                if state_json is None:
+                                    logger.info("Socket closed by server (game ended)")
+                                    break
+                                
+                                new_state = json_to_state(state_json)
+                                
+                                # Debug: Log raw JSON turn value for troubleshooting
+                                try:
+                                    raw_data = json.loads(state_json)
+                                    raw_turn = raw_data.get("turn", "unknown")
+                                    logger.debug(f"Raw JSON turn value: '{raw_turn}' (type: {type(raw_turn)})")
+                                except:
+                                    pass
+                                
+                                logger.info(
+                                    f"Received state update #{retry_count + 1}. "
+                                    f"Turn: {new_state.turn.value} (our turn: {self.turn.value})"
+                                )
+                                
+                                # CRITICAL: After we send a move, the turn MUST change to opponent
+                                # If it doesn't, either:
+                                # 1. The move was rejected (illegal)
+                                # 2. We're reading a stale state update
+                                # 3. There's a server bug
+                                
+                                if new_state.turn == self.turn:
+                                    retry_count += 1
+                                    logger.warning(
+                                        f"Turn did not change after our move (retry {retry_count}/{max_retries})! "
+                                        f"Still {new_state.turn.value}. This might be a stale state update."
+                                    )
+                                    
+                                    if retry_count >= max_retries:
+                                        logger.error(
+                                            f"Turn did not change after {max_retries} state updates! "
+                                            f"Move was likely rejected or there's a server issue. Exiting."
+                                        )
+                                        break
+                                    # Wait for next state update
+                                    continue
+                                
+                                # Turn changed correctly - update state
+                                state = new_state
+                                state_updated = True
+                                logger.info(f"State updated successfully. Turn changed to {state.turn.value}")
+                                
+                                # Check if game ended
+                                if state.turn in (Turn.WHITEWIN, Turn.BLACKWIN, Turn.DRAW):
+                                    logger.info(f"Game ended: {state.turn.value}")
+                                    break
+                                    
+                            except ConnectionError as e:
+                                logger.warning(f"Connection error after sending move: {e}")
+                                logger.info("Assuming game ended")
                                 break
-                            state = json_to_state(state_json)
-                            logger.info(f"Received updated state. Turn: {state.turn.value}")
-                        except ConnectionError as e:
-                            logger.warning(f"Connection error after sending move: {e}")
-                            logger.info("Assuming game ended")
+                        
+                        if not state_updated:
+                            # Failed to get valid state update
+                            logger.error("Failed to receive valid state update after sending move. Exiting.")
                             break
                         
                         # Clear transposition table periodically (prevent memory growth)
@@ -292,6 +401,10 @@ class TablutAgent:
                             if self.minimax.transposition_table and len(self.minimax.transposition_table.table) > 50000:
                                 logger.debug("Clearing transposition table")
                                 self.minimax.clear_cache()
+                        
+                        # Continue loop - wait for opponent's turn
+                        # The turn should now be opponent's, so we'll enter the "wait for opponent" branch
+                        continue
                     
                     except ValueError as e:
                         # This is the "No legal moves available" error from minimax
@@ -321,6 +434,33 @@ class TablutAgent:
                         # Fallback: send first legal move if available
                         if len(legal_moves_debug) > 0:
                             from_pos, to_pos = legal_moves_debug[0]
+                            
+                            # Validate the fallback move is actually legal
+                            if (from_pos, to_pos) not in legal_moves_debug:
+                                logger.error(f"Fallback move {from_pos} -> {to_pos} is not legal!")
+                                # Try to find any legal move
+                                if legal_moves_debug:
+                                    from_pos, to_pos = legal_moves_debug[0]
+                                else:
+                                    logger.error("No legal moves available for fallback!")
+                                    break
+                            
+                            # Validate destination is empty
+                            if state.board[to_pos[0], to_pos[1]] != Pawn.EMPTY:
+                                logger.error(
+                                    f"Fallback destination {to_pos} is occupied by {state.board[to_pos[0], to_pos[1]]}!"
+                                )
+                                # Try to find a move to an empty square
+                                found_valid = False
+                                for fallback_from, fallback_to in legal_moves_debug:
+                                    if state.board[fallback_to[0], fallback_to[1]] == Pawn.EMPTY:
+                                        from_pos, to_pos = fallback_from, fallback_to
+                                        found_valid = True
+                                        break
+                                if not found_valid:
+                                    logger.error("No valid fallback move to empty square!")
+                                    break
+                            
                             action = move_to_action(from_pos, to_pos, self.turn)
                             logger.warning(f"Using fallback move: {action}")
                             send_string(self.socket, json.dumps(action))
