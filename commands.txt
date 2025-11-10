@@ -1,0 +1,9 @@
+# Terminal 1
+cd Tablut/Executables && java -jar Server.jar -g
+
+# Terminal 2 (your RL agent)
+cd Tablut-challenge && source venv/bin/activate
+python -m python_client.agent WHITE 60 127.0.0.1 --model models/rl_value_net.zip
+
+# Terminal 3 (random opponent)
+cd Tablut/Executables && java -jar RandomPlayer.jar BLACK 60 127.0.0.1
