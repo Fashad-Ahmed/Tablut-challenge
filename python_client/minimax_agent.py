@@ -14,7 +14,7 @@ Test with: pytest python_client/tests/test_minimax.py
 
 import time
 import threading
-from typing import Callable, Optional, Tuple, List, Dict
+from typing import Callable, Dict, Optional, Tuple, List
 from dataclasses import dataclass
 from collections import defaultdict
 import numpy as np
@@ -157,6 +157,10 @@ class MinimaxAgent:
         # Thread-safe time tracking
         self._start_time: Optional[float] = None
         self._time_lock = threading.Lock()
+        
+        # Value function cache for performance (RL models can be slow)
+        self._value_cache: Dict[int, float] = {}
+        self._cache_max_size = 10000  # Limit cache size
     
     def get_move(self, state: GameState) -> Tuple[Tuple[int, int], Tuple[int, int]]:
         """
@@ -176,9 +180,16 @@ class MinimaxAgent:
         if not legal_moves:
             raise ValueError("No legal moves available")
         
-        # If only one move, return it immediately
+        # If only one move, return it immediately (skip expensive search)
         if len(legal_moves) == 1:
             return legal_moves[0]
+        
+        # Clear value cache at start of each move (prevent stale evaluations)
+        # Initialize if it doesn't exist (for backward compatibility)
+        if not hasattr(self, '_value_cache'):
+            self._value_cache: Dict[int, float] = {}
+            self._cache_max_size = 10000
+        self._value_cache.clear()
         
         # Iterative deepening
         best_move = legal_moves[0]  # Fallback
@@ -297,8 +308,31 @@ class MinimaxAgent:
         return best_move, best_value
     
     def _evaluate(self, state: GameState) -> float:
-        """Evaluate state using value function."""
-        return self.value_fn(state)
+        """Evaluate state using value function (with caching for performance)."""
+        # Initialize cache if it doesn't exist (for backward compatibility)
+        if not hasattr(self, '_value_cache'):
+            self._value_cache: Dict[int, float] = {}
+            self._cache_max_size = 10000
+        
+        # Use GameState's hash method (not built-in hash which fails for dataclasses with numpy arrays)
+        state_hash = state.hash()
+        
+        # Check cache
+        if state_hash in self._value_cache:
+            return self._value_cache[state_hash]
+        
+        # Evaluate
+        value = self.value_fn(state)
+        
+        # Cache result (with size limit)
+        if len(self._value_cache) < self._cache_max_size:
+            self._value_cache[state_hash] = value
+        else:
+            # Clear cache if too large (simple strategy: clear all)
+            self._value_cache.clear()
+            self._value_cache[state_hash] = value
+        
+        return value
     
     def _is_terminal(self, state: GameState) -> bool:
         """Check if state is terminal."""
@@ -319,7 +353,9 @@ class MinimaxAgent:
             return elapsed >= self.time_limit
     
     def clear_cache(self) -> None:
-        """Clear transposition table."""
+        """Clear transposition table and value cache."""
         if self.transposition_table:
             self.transposition_table.clear()
+        if hasattr(self, '_value_cache'):
+            self._value_cache.clear()
 
