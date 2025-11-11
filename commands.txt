@@ -7,3 +7,30 @@ python -m python_client.agent WHITE 60 127.0.0.1 --model models/rl_value_net.zip
 
 # Terminal 3 (random opponent)
 cd Tablut/Executables && java -jar RandomPlayer.jar BLACK 60 127.0.0.1
+
+
+Test the fixed evaluation
+
+
+cd /Users/fashad/fashad/projects/Tablut-challenge
+source venv/bin/activate
+
+# Test final model
+python scripts/evaluate_model.py models/rl_value_net_5M.zip --games 50
+
+# Test a checkpoint (e.g., 4.75M - near the end)
+python scripts/evaluate_model.py models/rl_value_net_5M.zip_checkpoints/ppo_checkpoint_4750000_steps.zip --games 50
+
+
+
+# Terminal 1: Start server with GUI
+cd Tablut/Executables && java -jar Server.jar -g
+
+# Terminal 2: Your 5M model (WHITE)
+cd /Users/fashad/fashad/projects/Tablut-challenge && source venv/bin/activate
+python -m python_client.agent WHITE 60 127.0.0.1 \
+    --model models/rl_value_net_5M_best/best_model.zip \
+    --depth 4
+
+# Terminal 3: Random player (BLACK)
+cd Tablut/Executables && java -jar RandomPlayer.jar BLACK 60 127.0.0.1
