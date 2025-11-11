@@ -317,16 +317,62 @@ def train_with_sb3(
             if "WANDB_MODE" not in os.environ:
                 os.environ["WANDB_MODE"] = "offline"  # Use offline mode by default
             
-            wandb.init(
-                project="tablut-rl",
-                config={
+            # Prepare hyperparameters based on algorithm
+            if algo.lower() == "ppo":
+                hyperparams = {
                     "algo": algo,
                     "total_timesteps": total_timesteps,
                     "seed": seed,
-                },
+                    "device": device,
+                    # PPO hyperparameters
+                    "learning_rate": 5e-4,
+                    "n_steps": 4096,
+                    "batch_size": 128,
+                    "n_epochs": 15,
+                    "gamma": 0.99,
+                    "gae_lambda": 0.95,
+                    "clip_range": 0.2,
+                    "ent_coef": 0.02,
+                    "vf_coef": 0.5,
+                    "max_grad_norm": 0.5,
+                    "policy": "MlpPolicy",
+                }
+            elif algo.lower() == "dqn":
+                hyperparams = {
+                    "algo": algo,
+                    "total_timesteps": total_timesteps,
+                    "seed": seed,
+                    "device": device,
+                    # DQN hyperparameters
+                    "learning_rate": 1e-4,
+                    "buffer_size": 100000,
+                    "learning_starts": 1000,
+                    "batch_size": 32,
+                    "tau": 1.0,
+                    "gamma": 0.99,
+                    "train_freq": "4 steps",
+                    "gradient_steps": 1,
+                    "target_update_interval": 1000,
+                    "exploration_fraction": 0.1,
+                    "exploration_initial_eps": 1.0,
+                    "exploration_final_eps": 0.05,
+                    "policy": "MlpPolicy",
+                }
+            else:
+                hyperparams = {
+                    "algo": algo,
+                    "total_timesteps": total_timesteps,
+                    "seed": seed,
+                    "device": device,
+                }
+            
+            wandb.init(
+                project="tablut-rl",
+                config=hyperparams,
                 mode=os.environ.get("WANDB_MODE", "offline"),
             )
             logger.info(f"WandB logging enabled (mode: {os.environ.get('WANDB_MODE', 'offline')})")
+            logger.info(f"Logged hyperparameters: {list(hyperparams.keys())}")
         except ImportError:
             logger.warning("wandb not installed. Continuing without logging.")
             use_wandb = False
@@ -365,46 +411,56 @@ def train_with_sb3(
     logger.info(f"Training on device: {device_str}")
     
     # Create model with hyperparameters optimized for Tablut
+    # Note: PPO is generally better for Tablut due to:
+    # - Better sample efficiency
+    # - More stable training
+    # - Better handling of sparse rewards
     if algo.lower() == "ppo":
-        model = PPO(
-            "MlpPolicy",
-            env,
-            learning_rate=3e-4,
-            n_steps=2048,
-            batch_size=64,
-            n_epochs=10,
-            gamma=0.99,
-            gae_lambda=0.95,
-            clip_range=0.2,
-            ent_coef=0.01,
-            vf_coef=0.5,
-            max_grad_norm=0.5,
-            verbose=1,
-            seed=seed,
-            device=device_str,
-            tensorboard_log="./tensorboard_logs/" if not use_wandb else None,
-        )
+        ppo_config = {
+            "policy": "MlpPolicy",
+            "env": env,
+            "learning_rate": 3e-4,
+            "n_steps": 2048,
+            "batch_size": 64,
+            "n_epochs": 10,
+            "gamma": 0.99,
+            "gae_lambda": 0.95,
+            "clip_range": 0.2,
+            "ent_coef": 0.01,
+            "vf_coef": 0.5,
+            "max_grad_norm": 0.5,
+            "verbose": 1,
+            "seed": seed,
+            "device": device_str,
+            "tensorboard_log": "./tensorboard_logs/" if not use_wandb else None,
+        }
+        model = PPO(**ppo_config)
+        logger.info(f"Created PPO model with hyperparameters: lr={ppo_config['learning_rate']}, "
+                   f"n_steps={ppo_config['n_steps']}, batch_size={ppo_config['batch_size']}")
     elif algo.lower() == "dqn":
-        model = DQN(
-            "MlpPolicy",
-            env,
-            learning_rate=1e-4,
-            buffer_size=100000,
-            learning_starts=1000,
-            batch_size=32,
-            tau=1.0,
-            gamma=0.99,
-            train_freq=(4, "step"),
-            gradient_steps=1,
-            target_update_interval=1000,
-            exploration_fraction=0.1,
-            exploration_initial_eps=1.0,
-            exploration_final_eps=0.05,
-            verbose=1,
-            seed=seed,
-            device=device_str,
-            tensorboard_log="./tensorboard_logs/" if not use_wandb else None,
-        )
+        dqn_config = {
+            "policy": "MlpPolicy",
+            "env": env,
+            "learning_rate": 1e-4,
+            "buffer_size": 100000,
+            "learning_starts": 1000,
+            "batch_size": 32,
+            "tau": 1.0,
+            "gamma": 0.99,
+            "train_freq": (4, "step"),
+            "gradient_steps": 1,
+            "target_update_interval": 1000,
+            "exploration_fraction": 0.1,
+            "exploration_initial_eps": 1.0,
+            "exploration_final_eps": 0.05,
+            "verbose": 1,
+            "seed": seed,
+            "device": device_str,
+            "tensorboard_log": "./tensorboard_logs/" if not use_wandb else None,
+        }
+        model = DQN(**dqn_config)
+        logger.info(f"Created DQN model with hyperparameters: lr={dqn_config['learning_rate']}, "
+                   f"buffer_size={dqn_config['buffer_size']}, batch_size={dqn_config['batch_size']}")
     else:
         raise ValueError(f"Unknown algorithm: {algo}")
     
@@ -433,6 +489,38 @@ def train_with_sb3(
     # Train
     logger.info(f"Training {algo.upper()} for {total_timesteps} timesteps...")
     logger.info(f"Checkpoints will be saved every {checkpoint_interval} steps")
+    
+    # Add WandB callback for metric logging if enabled
+    if use_wandb:
+        try:
+            import wandb
+            from stable_baselines3.common.callbacks import BaseCallback
+            
+            class WandBCallback(BaseCallback):
+                """Callback to log metrics to WandB."""
+                def __init__(self, verbose=0):
+                    super().__init__(verbose)
+                    self.episode_rewards = []
+                    self.episode_lengths = []
+                
+                def _on_step(self) -> bool:
+                    # Log metrics from info dict if available
+                    if len(self.locals.get("infos", [])) > 0:
+                        for info in self.locals["infos"]:
+                            if "episode" in info:
+                                episode_info = info["episode"]
+                                if "r" in episode_info:
+                                    wandb.log({
+                                        "episode_reward": episode_info["r"],
+                                        "episode_length": episode_info["l"],
+                                    }, step=self.num_timesteps)
+                    return True
+            
+            wandb_callback = WandBCallback()
+            callbacks.append(wandb_callback)
+            logger.info("Added WandB callback for metric logging")
+        except Exception as e:
+            logger.warning(f"Could not add WandB callback: {e}")
     
     # Check if progress bar dependencies are available
     # stable-baselines3 requires tqdm and rich for progress bar
