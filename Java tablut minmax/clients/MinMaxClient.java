@@ -23,12 +23,22 @@ import it.unibo.ai.didattica.competition.tablut.rulecheck.RuleCheckerAshton;
  */
 public class MinMaxClient extends TablutClient {
 
+    private class Result{
+        public int score;
+        public int depth_left;
+
+        public Result(int s,int l){
+            score = s;
+            depth_left = l;
+        }
+    }
+
     //rule checker and board evaluator
     Evaluator evaluator;
     RuleChecker engine;
 
     private int game;
-    private int DEPTH = 2;
+    private int DEPTH = 3;
     int TRESHOLD = 100;
     private List<String> citadels = new ArrayList<String>();
     
@@ -73,17 +83,17 @@ public class MinMaxClient extends TablutClient {
         return result;
     }    
 
-    int getMinMaxScore(int depth, Pawn[][] board, boolean isMax, boolean turnPlayer) throws IOException{
+    Result getMinMaxScore(int depth, Pawn[][] board, boolean isMax, boolean turnPlayer) throws IOException{
         int l= 0;
         if(this.getPlayer().equals(Turn.WHITE)) l = evaluator.getWhiteScore(board);
         else l = evaluator.getBlackScore(board);
-        System.out.println(l+" - depth: "+depth);
 
         if(depth==0 || l>=TRESHOLD || l<=(-TRESHOLD))
         {
-            return l;
+            return new Result(l, depth);
         }
-        int best = isMax ? -1000: 1000;
+        int start = isMax ? -1000: 1000;
+        Result best = new Result(start, 0);
         List<int[]> targets = new ArrayList<>();
         for(int i=0;i<9;i++){
             for(int z=0;z<9;z++){
@@ -131,17 +141,31 @@ public class MinMaxClient extends TablutClient {
             List<Action> actions = expandMoves(i, j, this.getCurrentState().getBoard(),t);
             for(Action a:actions){
                 try{
-                    StateTablut state = new StateTablut(board);
-                    state.setTurn(a.getTurn());
                     if(engine.isValid(board, a)){
                         Pawn[][] temp = deepCopyBoard(board);
                         temp = engine.perform(board,a,isMax,this.getPlayer());
-                        int score = getMinMaxScore(depth-1, temp, !isMax, !turnPlayer);
+                        Result res = getMinMaxScore(depth-1, temp, !isMax, !turnPlayer);
                         if(isMax){
-                            best = Math.max(score,best);
+                            if(res.score>best.score){
+                                best.score = res.score;
+                                best.depth_left = best.depth_left;
+                            }
+                            else if(res.score==best.score){
+                                if(res.depth_left>best.depth_left){
+                                     best.depth_left = res.depth_left;
+                                }
+                            }
                         }
                         else{
-                            best = Math.min(score,best);
+                            if(res.score<best.score){
+                                best.score = res.score;
+                                best.depth_left = best.depth_left;
+                            }
+                            else if(res.score==best.score){
+                                if(res.depth_left>best.depth_left){
+                                     best.depth_left = res.depth_left;
+                                }
+                            }
                         }
                     }
                 }
@@ -155,7 +179,8 @@ public class MinMaxClient extends TablutClient {
 
     Action minMaxChoice(Pawn[][] board, boolean isMax, boolean turnPlayer) throws IOException{
         List<int[]> targets = allies;
-        int best = isMax ? -1000 : 1000;
+        int start = isMax ? -1000 : 1000;
+        Result best = new Result(start, 0);
         List<Action> choices = new ArrayList<>();
 
         Turn t = Turn.WHITE;
@@ -163,7 +188,7 @@ public class MinMaxClient extends TablutClient {
             t = this.getPlayer();
         }
         else{
-            if(this.getPlayer().equalsTurn("W")) t = Turn.BLACK;
+            if(this.getPlayer().equals(Turn.BLACK)) t = Turn.BLACK;
         }        
 
         for(int[] x:targets){
@@ -172,30 +197,44 @@ public class MinMaxClient extends TablutClient {
             List<Action> actions = expandMoves(i, j, this.getCurrentState().getBoard(),t);
             for(Action a:actions){
                 try{
-                    StateTablut state = new StateTablut(board);
-                    state.setTurn(a.getTurn());
                     if(engine.isValid(board,a)){
                         Pawn[][] temp = deepCopyBoard(board);
                         temp = engine.perform(board,a,isMax,this.getPlayer());
-                        int score = getMinMaxScore(DEPTH, temp, isMax, turnPlayer);
+                        Result score = getMinMaxScore(DEPTH-1, temp, !isMax, turnPlayer);
                         if(isMax){
-                            if(best<score){
-                                best=score;
+                            if(best.score<score.score){
+                                best.score=score.score;
+                                best.depth_left = score.depth_left;
                                 choices.clear();
                                 choices.add(a);
                             }
-                            else if(best==score){
-                                choices.add(a);
+                            else if(best.score==score.score){
+                                if(best.depth_left<score.depth_left){
+                                    best.depth_left = score.depth_left;
+                                    choices.clear();
+                                    choices.add(a);
+                                }
+                                else if(best.depth_left==score.depth_left){
+                                    choices.add(a);
+                                }
                             }
                         }
                         else{
-                            if(best>score){
-                                best=score;
+                            if(best.score>score.score){
+                                best.score=score.score;
+                                best.depth_left = score.depth_left;
                                 choices.clear();
                                 choices.add(a);
                             }
-                            else if(best==score){
-                                choices.add(a);
+                            else if(best.score==score.score){
+                                if(best.depth_left<score.depth_left){
+                                    best.depth_left = score.depth_left;
+                                    choices.clear();
+                                    choices.add(a);
+                                }
+                                else if(best.depth_left==score.depth_left){
+                                    choices.add(a);
+                                }
                             }
                         }                       
                     }
@@ -205,10 +244,10 @@ public class MinMaxClient extends TablutClient {
                 }
             }
         }
-        Random x = new Random();
-        System.out.println("Score obtained:"+best);
+        Random s = new Random();
+        System.out.println("Score obtained:"+best.score+", depth_left="+best.depth_left);
         System.out.println("Choises size:"+choices.size());
-        return choices.get(x.nextInt(choices.size()));
+        return choices.get(s.nextInt(choices.size()));
     }
 
     public static void main(String[] args) throws UnknownHostException, IOException, ClassNotFoundException {

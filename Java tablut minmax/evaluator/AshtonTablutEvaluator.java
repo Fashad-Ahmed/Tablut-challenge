@@ -51,8 +51,6 @@ public class AshtonTablutEvaluator implements Evaluator{
 		}
 
         if(x==-1) return -VICTORY;
-        
-
 
         int value = kingValues[x][y];
         //evaluate neighbors

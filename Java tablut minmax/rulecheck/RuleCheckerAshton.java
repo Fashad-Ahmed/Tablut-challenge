@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import it.unibo.ai.didattica.competition.tablut.domain.Action;
-import it.unibo.ai.didattica.competition.tablut.domain.GameRuleEngine;
 import it.unibo.ai.didattica.competition.tablut.domain.State;
 import it.unibo.ai.didattica.competition.tablut.domain.StateTablut;
 import it.unibo.ai.didattica.competition.tablut.domain.State.Pawn;
@@ -435,6 +434,17 @@ public class RuleCheckerAshton implements RuleChecker {
 		checkCaptureBlackKingLeft(state, a);
 		checkCaptureBlackKingDown(state, a);
 		checkCaptureBlackKingUp(state, a);
+
+		//remove king if Black wins
+		if(state.getTurn().equals(Turn.BLACKWIN)){
+			for(int i=0;i<9;i++){
+				for(int z=0;z<9;z++){
+					if(state.getBoard()[i][z].equalsPawn("K"))
+						state.removePawn(i, z);
+				}
+			}
+		}
+
         return state.getBoard();
     }
 
