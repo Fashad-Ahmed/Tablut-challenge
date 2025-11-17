@@ -38,7 +38,7 @@ public class MinMaxClient extends TablutClient {
     RuleChecker engine;
 
     private int game;
-    private int DEPTH = 3;
+    private int DEPTH = 5;
     int TRESHOLD = 100;
     private List<String> citadels = new ArrayList<String>();
     
@@ -83,7 +83,7 @@ public class MinMaxClient extends TablutClient {
         return result;
     }    
 
-    Result getMinMaxScore(int depth, Pawn[][] board, boolean isMax, boolean turnPlayer) throws IOException{
+    Result getMinMaxScore(int depth, Pawn[][] board, boolean isMax, Result alpha, Result beta) throws IOException{
         int l= 0;
         if(this.getPlayer().equals(Turn.WHITE)) l = evaluator.getWhiteScore(board);
         else l = evaluator.getBlackScore(board);
@@ -140,12 +140,14 @@ public class MinMaxClient extends TablutClient {
 
             List<Action> actions = expandMoves(i, j, this.getCurrentState().getBoard(),t);
             for(Action a:actions){
+                if(beta.score<alpha.score || (beta.score==alpha.score && beta.depth_left<=alpha.depth_left))break;
                 try{
                     if(engine.isValid(board, a)){
                         Pawn[][] temp = deepCopyBoard(board);
                         temp = engine.perform(board,a,isMax,this.getPlayer());
-                        Result res = getMinMaxScore(depth-1, temp, !isMax, !turnPlayer);
+                        Result res = getMinMaxScore(depth-1, temp, !isMax, alpha, beta);
                         if(isMax){
+                            //update best
                             if(res.score>best.score){
                                 best.score = res.score;
                                 best.depth_left = best.depth_left;
@@ -155,8 +157,16 @@ public class MinMaxClient extends TablutClient {
                                      best.depth_left = res.depth_left;
                                 }
                             }
+                            //update alpha
+                            if(alpha.score<best.score){
+                                alpha = new Result(best.score, best.depth_left);
+                            }
+                            else if(alpha.score==best.score){
+                                alpha.depth_left = Math.max(best.depth_left, alpha.depth_left);
+                            }
                         }
                         else{
+                            //update score
                             if(res.score<best.score){
                                 best.score = res.score;
                                 best.depth_left = best.depth_left;
@@ -165,6 +175,13 @@ public class MinMaxClient extends TablutClient {
                                 if(res.depth_left>best.depth_left){
                                      best.depth_left = res.depth_left;
                                 }
+                            }
+                            //update beta
+                            if(beta.score>best.score){
+                                beta = new Result(best.score, best.depth_left);
+                            }
+                            else if(beta.score==best.score){
+                                beta.depth_left = Math.max(best.depth_left, beta.depth_left);
                             }
                         }
                     }
@@ -191,17 +208,21 @@ public class MinMaxClient extends TablutClient {
             if(this.getPlayer().equals(Turn.BLACK)) t = Turn.BLACK;
         }        
 
+        Result alpha = new Result(-100000,0);
+        Result beta =  new Result(100000,0);
         for(int[] x:targets){
             int i,j;
             i=x[0];j=x[1];
             List<Action> actions = expandMoves(i, j, this.getCurrentState().getBoard(),t);
             for(Action a:actions){
+                if(beta.score<alpha.score || (beta.score==alpha.score && beta.depth_left<=alpha.depth_left))break;
                 try{
                     if(engine.isValid(board,a)){
                         Pawn[][] temp = deepCopyBoard(board);
                         temp = engine.perform(board,a,isMax,this.getPlayer());
-                        Result score = getMinMaxScore(DEPTH-1, temp, !isMax, turnPlayer);
+                        Result score = getMinMaxScore(DEPTH-1, temp, !isMax, alpha, beta);
                         if(isMax){
+                            //upadte best
                             if(best.score<score.score){
                                 best.score=score.score;
                                 best.depth_left = score.depth_left;
@@ -218,8 +239,16 @@ public class MinMaxClient extends TablutClient {
                                     choices.add(a);
                                 }
                             }
+                            //update alpha
+                            if(alpha.score<best.score){
+                                alpha = new Result(best.score, best.depth_left);
+                            }
+                            else if(alpha.score==best.score){
+                                alpha.depth_left = Math.max(best.depth_left, alpha.depth_left);
+                            }
                         }
                         else{
+                            //update best
                             if(best.score>score.score){
                                 best.score=score.score;
                                 best.depth_left = score.depth_left;
@@ -235,6 +264,13 @@ public class MinMaxClient extends TablutClient {
                                 else if(best.depth_left==score.depth_left){
                                     choices.add(a);
                                 }
+                            }
+                            //update beta
+                            if(beta.score>best.score){
+                                beta = new Result(best.score, best.depth_left);
+                            }
+                            else if(beta.score==best.score){
+                                beta.depth_left = Math.max(best.depth_left, beta.depth_left);
                             }
                         }                       
                     }

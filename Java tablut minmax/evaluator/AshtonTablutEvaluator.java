@@ -7,13 +7,13 @@ public class AshtonTablutEvaluator implements Evaluator{
     private static final int VICTORY = 1000;
     private static int[][] kingValues = {
         {-VICTORY,VICTORY,VICTORY,-VICTORY,-VICTORY,-VICTORY,VICTORY,VICTORY,-VICTORY},
-        {VICTORY,0,3,0,-VICTORY,0,3,0,VICTORY},
-        {VICTORY,0,4,0,2,0,4,0,VICTORY},
+        {VICTORY,2,3,1,-VICTORY,1,3,2,VICTORY},
+        {VICTORY,2,4,0,2,0,4,2,VICTORY},
         {-VICTORY,0,2,0,1,0,2,0,-VICTORY},
         {-VICTORY,-VICTORY,2,1,0,1,2,-VICTORY,-VICTORY},
         {-VICTORY,0,2,0,1,0,2,0,-VICTORY},
-        {VICTORY,0,4,0,2,0,4,0,VICTORY},
-        {VICTORY,0,3,0,-VICTORY,0,3,0,VICTORY},
+        {VICTORY,2,4,0,2,0,4,2,VICTORY},
+        {VICTORY,2,3,1,-VICTORY,1,3,2,VICTORY},
         {-VICTORY,VICTORY,VICTORY,-VICTORY,-VICTORY,-VICTORY,VICTORY,VICTORY,-VICTORY}
     };
 
