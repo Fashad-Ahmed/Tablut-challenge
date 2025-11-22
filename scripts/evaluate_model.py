@@ -30,8 +30,8 @@ def evaluate_model(model_path: str, num_games: int = 100, verbose: bool = True):
         num_games: Number of games to play
         verbose: Print progress
     """
-    print(f"📊 Evaluating model: {model_path}")
-    print(f"🎮 Playing {num_games} self-play games...\n")
+    print(f"Evaluating model: {model_path}")
+    print(f"Playing {num_games} self-play games...\n")
     
     # Load model - handle .zip extension correctly
     model_path_clean = model_path
@@ -43,7 +43,7 @@ def evaluate_model(model_path: str, num_games: int = 100, verbose: bool = True):
     # Check if file exists
     from pathlib import Path
     if not Path(model_path_clean).exists():
-        print(f"❌ Model file not found: {model_path_clean}")
+        print(f"Model file not found: {model_path_clean}")
         print(f"   Tried: {model_path}")
         return
     
@@ -55,10 +55,10 @@ def evaluate_model(model_path: str, num_games: int = 100, verbose: bool = True):
             model = DQN.load(model_path_clean)
             algo = "DQN"
         except Exception as e:
-            print(f"❌ Error loading model: {e}")
+            print(f"Error loading model: {e}")
             return
     
-    print(f"✅ Loaded {algo} model\n")
+    print(f"Loaded {algo} model\n")
     
     # Create environment
     env = ActionMaskWrapper(TablutEnv())
@@ -156,31 +156,31 @@ def evaluate_model(model_path: str, num_games: int = 100, verbose: bool = True):
     print(f"Black wins: {black_wins} ({black_wins/num_games:.1%})")
     print(f"Draws: {draws} ({draws/num_games:.1%})")
     if illegal_moves > 0:
-        print(f"⚠️  Illegal moves detected: {illegal_moves} ({illegal_moves/num_games:.1%})")
+        print(f"Illegal moves detected: {illegal_moves} ({illegal_moves/num_games:.1%})")
     if game_lengths:
         print(f"\nAverage game length: {np.mean(game_lengths):.1f} moves")
         print(f"Min game length: {min(game_lengths)} moves")
         print(f"Max game length: {max(game_lengths)} moves")
     else:
-        print("\n⚠️  No valid games completed (all ended with illegal moves?)")
+        print("\nNo valid games completed (all ended with illegal moves?)")
     print("="*50)
     
     # Model quality assessment
     if white_wins + black_wins > 0:
         win_rate = max(white_wins, black_wins) / (white_wins + black_wins)
         if win_rate > 0.7:
-            print("✅ Model shows strong play (high win rate)")
+            print("Model shows strong play (high win rate)")
         elif win_rate > 0.55:
-            print("✅ Model shows decent play")
+            print("Model shows decent play")
         else:
-            print("⚠️  Model may need more training (low win rate)")
+            print("Model may need more training (low win rate)")
     
     if np.mean(game_lengths) < 20:
-        print("⚠️  Games are very short - may indicate poor play")
+        print("Games are very short - may indicate poor play")
     elif np.mean(game_lengths) > 150:
-        print("⚠️  Games are very long - may indicate defensive play")
+        print("Games are very long - may indicate defensive play")
     else:
-        print("✅ Game lengths look reasonable")
+        print("Game lengths look reasonable")
 
 
 def compare_models(model_paths: list, num_games: int = 50):
@@ -203,7 +203,7 @@ def compare_models(model_paths: list, num_games: int = 50):
         # Check if exists
         from pathlib import Path
         if not Path(model_path_clean).exists():
-            print(f"⚠️  Skipping - file not found: {model_path_clean}")
+            print(f"Skipping - file not found: {model_path_clean}")
             continue
         
         # Quick evaluation
@@ -213,7 +213,7 @@ def compare_models(model_paths: list, num_games: int = 50):
             try:
                 model = DQN.load(model_path_clean)
             except Exception as e:
-                print(f"⚠️  Skipping - error loading: {e}")
+                print(f"Skipping - error loading: {e}")
                 continue
         
         env = ActionMaskWrapper(TablutEnv())

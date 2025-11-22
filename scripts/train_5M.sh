@@ -6,7 +6,7 @@ set -e
 cd /Users/fashad/fashad/projects/Tablut-challenge
 source venv/bin/activate
 
-echo "🚀 Starting 5M timestep training with WandB..."
+echo "Starting 5M timestep training with WandB..."
 
 # Train
 WANDB_MODE=online python -m python_client.trainer \
@@ -17,10 +17,10 @@ WANDB_MODE=online python -m python_client.trainer \
     --checkpoint-interval 250000 \
     --device cpu
 
-echo "✅ Training complete!"
+echo "Training complete!"
 
 # Upload models to WandB (with error handling)
-echo "📤 Uploading models to WandB..."
+echo "Uploading models to WandB..."
 python -c "
 import wandb
 import os
@@ -40,9 +40,9 @@ try:
                 artifact = wandb.Artifact('rl_model_5M_final', type='model')
                 artifact.add_file('models/rl_value_net_5M.zip')
                 wandb.log_artifact(artifact)
-                print('✅ Uploaded final model to WandB')
+                print('Uploaded final model to WandB')
             except Exception as e:
-                print(f'⚠️  Could not upload final model: {e}')
+                print(f'Could not upload final model: {e}')
         
         # Upload best model (check if exists)
         best_model = 'models/rl_value_net_5M_best/best_model.zip'
@@ -51,18 +51,18 @@ try:
                 artifact = wandb.Artifact('rl_model_5M_best', type='model')
                 artifact.add_file(best_model)
                 wandb.log_artifact(artifact)
-                print('✅ Uploaded best model to WandB')
+                print('Uploaded best model to WandB')
             except Exception as e:
-                print(f'⚠️  Could not upload best model: {e}')
+                print(f'Could not upload best model: {e}')
         else:
-            print('ℹ️  Best model not found (may not have been saved)')
+            print('Best model not found (may not have been saved)')
         
         wandb.finish()
     else:
-        print('⚠️  No WandB run found')
+        print('No WandB run found')
 except Exception as e:
-    print(f'⚠️  WandB upload failed (non-critical): {e}')
+    print(f'WandB upload failed (non-critical): {e}')
     print('   Models are saved locally. You can upload manually later.')
 "
 
-echo "🎉 All done! Check your WandB dashboard."
+echo "All done! Check your WandB dashboard."
