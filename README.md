@@ -101,6 +101,13 @@ See [docs/DEPLOY.md](docs/DEPLOY.md) for detailed deployment instructions.
 - [Deployment](docs/DEPLOY.md): Competition environment setup
 - [API Reference](docs/model-training/API.md): Code examples and interfaces
 
+## Team
+
+- **Fashad Ahmed Siddique** - [fashad.ahmedsiddique@studio.unibo.it](mailto:fashad.ahmedsiddique@studio.unibo.it) | [GitHub](https://github.com/Fashad-Ahmed)
+- **Andrea Pantieri** - [andrea.pantieri@studio.unibo.it](mailto:andrea.pantieri@studio.unibo.it) | [GitHub](https://github.com/Andrea)
+- **Giacomo Boschi** - [giacomo.boschi7@studio.unibo.it](mailto:giacomo.boschi7@studio.unibo.it) | [GitHub](https://github.com/GiacomoBoschi2)
+- **Massimiliano Bolognini** - [massimilia.bolognini@studio.unibo.it](mailto:massimilia.bolognini@studio.unibo.it) | [GitHub](https://github.com/La-Peticchia)
+
 ## References
 
 - [Tablut Competition Repository](https://github.com/AGalassi/TablutCompetition)
