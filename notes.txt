@@ -1,0 +1,9 @@
+Virtual Machine Drive Link: https://liveunibo-my.sharepoint.com/:u:/g/personal/massimilia_bolognini_studio_unibo_it/IQAMpN7nqyVNSJPMsDOyEm-xAdWHi0fQ140MdPuhXw3F20s?e=blRL8W
+
+Github Repository Link: https://github.com/Fashad-Ahmed/Tablut-challenge
+
+Instructions to run the agent:
+
+- Run the script runmyplayer.sh considering the java server is up and running. That's all you need to do :)
+- Just an example: ./runmyplayer.sh white 60 127.0.0.1 (Format: ./runmyplayer.sh <player> <timeout> <server_ip>)
+- For Instructions you can refer the Github Repository README.md file.
