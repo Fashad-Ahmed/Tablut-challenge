@@ -229,3 +229,16 @@ For detailed training documentation, see [docs/model-training/TRAINING_GUIDE.md]
 
 - [Tablut Competition Repository](https://github.com/AGalassi/TablutCompetition)
 - [Ashton Tablut Rules](https://aagenielsen.dk/ashton.php)
+
+
+## Awards
+
+Tablut Challenge Awards
+
+In addition to the final ranking, several special prizes were awarded to recognize outstanding performances, strategies, and originality:
+
+ Best Name Award
+The Four Horsemen of Tabluting – for unquestionable coolness.
+
+Secret Agents Award
+PythonAgen, ReplayAgent, MyAIPlayer (a.k.a. The Four Horsemen of Tabluting, techloria, Lions) – for never revealing their true identities.
