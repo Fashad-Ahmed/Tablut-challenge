@@ -221,7 +221,7 @@ For detailed training documentation, see [docs/model-training/TRAINING_GUIDE.md]
 ## Team (The Four Horsemen of Tabluting)
 
 - **Fashad Ahmed Siddique** - [fashad.ahmedsiddique@studio.unibo.it](mailto:fashad.ahmedsiddique@studio.unibo.it) | [GitHub](https://github.com/Fashad-Ahmed)
-- **Andrea Pantieri** - [andrea.pantieri@studio.unibo.it](mailto:andrea.pantieri@studio.unibo.it) | [GitHub](https://github.com/Andrea)
+- **Andrea Pantieri** - [andrea.pantieri@studio.unibo.it](mailto:andrea.pantieri@studio.unibo.it) | [GitHub](https://github.com/AndreaPantieri)
 - **Giacomo Boschi** - [giacomo.boschi7@studio.unibo.it](mailto:giacomo.boschi7@studio.unibo.it) | [GitHub](https://github.com/GiacomoBoschi2)
 - **Massimiliano Bolognini** - [massimilia.bolognini@studio.unibo.it](mailto:massimilia.bolognini@studio.unibo.it) | [GitHub](https://github.com/La-Peticchia)
 
