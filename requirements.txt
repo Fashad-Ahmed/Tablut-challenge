@@ -10,5 +10,5 @@ rich>=13.0.0
 wandb>=0.15.0
 
 # Development dependencies (install with: pip install -r requirements.txt -r requirements-dev.txt)
-# See requirements-dev.txt
+# See requirements-dev.txt test
 
